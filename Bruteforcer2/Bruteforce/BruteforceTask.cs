@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ namespace Bruteforcer2.Bruteforce
         private readonly int _maxLength;
         private readonly int _minLength;
         public long Counter;
+        public DateTime lastUpdate;
         private DateTime _startDateTime;
         private DateTime _endDateTime;
 
@@ -57,6 +59,7 @@ namespace Bruteforcer2.Bruteforce
                 _active = true;
                 new Task(() =>
                 {
+                    lastUpdate = DateTime.Now;
                     _startDateTime = DateTime.Now;
                     if (!BruteforceManager.Cancel)
                         Bruteforce(_minLength, _maxLength, TaskNumber, BruteforceManager.TaskCount);
@@ -177,8 +180,15 @@ namespace Bruteforcer2.Bruteforce
 
         public void Update()
         {
-            Speed = (double) (Counter - _lastCounter);
-            _lastCounter = Counter;
+            if (_active)
+            {
+                var currentUpdate = DateTime.Now;
+
+                var timeDiff = currentUpdate - lastUpdate;
+                Speed = (double) (Counter - _lastCounter) / timeDiff.TotalSeconds;
+                _lastCounter = Counter;
+                lastUpdate = currentUpdate;
+            }
         }
     }
 }

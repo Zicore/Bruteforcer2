@@ -20,7 +20,8 @@ namespace Bruteforcer2.Model
                 new HashMD5HashLib(),
                 new HashMD5Mono(),
                 new HashMD5Managed(),
-                new HashMD5Unmanaged()
+                new HashMD5Unmanaged(),
+                new NullHash()
             };
 
             return hashes;

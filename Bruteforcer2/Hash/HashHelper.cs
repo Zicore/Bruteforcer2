@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using HashLib;
@@ -77,7 +78,7 @@ namespace Bruteforcer2.Hash
             for (int i = 0; i < arr.Length; i++) array[i] = Convert.ToByte(arr[i], 16);
             return array;
         }
-
+        
         public static bool ArraysEqual<T>(T[] a1, T[] a2)
         {
             if (ReferenceEquals(a1, a2))
