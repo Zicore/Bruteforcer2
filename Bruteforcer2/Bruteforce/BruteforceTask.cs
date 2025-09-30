@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -134,6 +135,9 @@ namespace Bruteforcer2.Bruteforce
                     }
 
                     BruteforceManager.Encoding.GetBytes(charBuffer, 0, charBuffer.Length, currentHashBuffer, 0);
+
+                    //Debug.WriteLine(new string(charBuffer));
+
                     if (CheckItem(currentHashBuffer, _input, 0, charBuffer.Length, Hash))
                     {
                         _endDateTime = DateTime.Now;
