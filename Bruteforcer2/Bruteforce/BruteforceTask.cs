@@ -96,6 +96,13 @@ namespace Bruteforcer2.Bruteforce
                         start /= charset.Length;
                     }
 
+                    if (hash is IBatchedBruteforceHash batched && batched.BatchSize > 1 && length <= 55)
+                    {
+                        if (BruteforceBatches(batched, candidate, indices, count, ref counter))
+                            return;
+                        continue;
+                    }
+
                     for (long n = 0; n < count; n++)
                     {
                         if ((n & (ProgressBatchSize - 1)) == 0)
@@ -137,6 +144,59 @@ namespace Bruteforcer2.Bruteforce
                 // Preserve the final count on success, exhaustion, cancellation and failure.
                 Interlocked.Exchange(ref _counter, counter);
             }
+        }
+
+        // Existing adapters keep the scalar loop above. Only batch-capable adapters enter here.
+        private bool BruteforceBatches(IBatchedBruteforceHash hash, byte[] candidate,
+            int[] indices, long count, ref long counter)
+        {
+            var length = candidate.Length;
+            var batchSize = hash.BatchSize;
+            var batch = new byte[batchSize * length];
+            var charset = _charset;
+            long processed = 0;
+            while (processed < count)
+            {
+                Interlocked.Exchange(ref _counter, counter);
+                if (BruteforceManager.Cancel)
+                    return true;
+
+                var remaining = (int)Math.Min(ProgressBatchSize, count - processed);
+                while (remaining > 0)
+                {
+                    var lanes = Math.Min(batchSize, remaining);
+                    for (var lane = 0; lane < lanes; lane++)
+                    {
+                        candidate.AsSpan().CopyTo(batch.AsSpan(lane * length, length));
+                        for (var i = length - 1; i >= 0; i--)
+                        {
+                            var next = indices[i] + 1;
+                            if (next < charset.Length)
+                            {
+                                indices[i] = next;
+                                candidate[i] = charset[next];
+                                break;
+                            }
+                            indices[i] = 0;
+                            candidate[i] = charset[0];
+                        }
+                    }
+
+                    var match = hash.FindMatch(batch.AsSpan(0, lanes * length), length, lanes, _input);
+                    counter += lanes;
+                    processed += lanes;
+                    remaining -= lanes;
+                    if (match >= 0)
+                    {
+                        Result = BruteforceManager.Encoding.GetString(batch, match * length, length);
+                        Interlocked.Exchange(ref _counter, counter);
+                        _hasResult = true;
+                        BruteforceManager.ReportResult(this);
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         public void Update()

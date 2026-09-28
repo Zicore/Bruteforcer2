@@ -34,4 +34,33 @@ Die bestehenden Implementierungen verwenden noch `HashLib 2.0.1` (Warnung
 VS Code bietet keinen visuellen WinForms-Designer; die Oberfläche lässt sich
 weiterhin über den vorhandenen C#-Designer-Code bearbeiten.
 
+## AstraMD5
+
+Im Hash-Auswahlfeld steht zusätzlich **AstraMD5 (AVX2 x8)** zur Verfügung.
+Für Kandidaten bis 55 Bytes berechnet dieser Adapter acht MD5-Hashes gleichzeitig
+mit AVX2 und vergleicht die Ergebniswörter direkt mit dem Zielhash. Die Anzeige
+zählt Kandidaten, nicht SIMD-Batches; bei einem Treffer wird der gesamte bereits
+berechnete Batch mitgezählt. Die bisherigen Adapter bleiben unverändert auswählbar.
+
+Ohne AVX2 erscheint **AstraMD5 (Scalar)**. Einzelaufrufe und unvollständige Batches
+verwenden den eigenen skalaren Kern. Eingaben ab 56 Bytes werden über .NET-MD5
+berechnet. Die Auswahl allein garantiert noch keinen Geschwindigkeitsgewinn;
+Vergleiche mit identischen Einstellungen im Release-Modus ohne Debugger durchführen.
+
+Die Implementierung ist aufgeteilt in:
+
+- `Hash/MD5/HashAstraMD5.cs`: Adapter, Blockvorbereitung und SIMD-Ergebnisvergleich.
+- `Hash/MD5/HashAstraMD5.Rounds.cs`: vollständig ausgeschriebene MD5-Runden.
+  Reproduzierbar mit `python tools/generate_astra_md5.py`; Python wird zum normalen
+  Bauen oder Starten nicht benötigt.
+- `Bruteforce/BruteforceTask.cs`, Methode `BruteforceBatches`: Batch-Zuführung
+  ausschließlich für passende Adapter; der bisherige skalare Suchpfad bleibt erhalten.
+
+Korrektheitsprüfung (bekannte MD5-Vektoren, Vergleich mit .NET und BouncyCastle,
+SIMD-Positionen, Restbatches und Suchraumgrenzen; kein Benchmark):
+
+```powershell
+dotnet run --project tools/AstraMD5.Verify --configuration Release
+```
+
 ![Bruteforcer2](https://i.imgur.com/CJZwQrf.png "Bruteforcer2")

@@ -17,6 +17,7 @@ namespace Bruteforcer2.Model
             var hashes = new ObservableCollection<IBruteforceHash>
             {
                 new HashMD5BouncyCastle(),
+                new HashAstraMD5(),
                 new HashMD5HashLib(),
                 new HashMD5Mono(),
                 new HashMD5Managed(),
