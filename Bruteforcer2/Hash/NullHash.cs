@@ -8,9 +8,11 @@ namespace Bruteforcer2.Hash
 {
     class NullHash : HashBase, IBruteforceHash
     {
+        private readonly byte[] _result = new byte[] { 0 };
+
         public byte[] Hash(byte[] buffer, int offset, int count)
         {
-            return new byte[]{0};
+            return _result;
         }
 
         protected override string Name
