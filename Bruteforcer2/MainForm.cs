@@ -45,7 +45,17 @@ namespace Bruteforcer2
         {
             _speedAverage.Clear();
             var hash = comboBoxHash.SelectedItem as IBruteforceHash;
-            Bruteforce.Start(hash, tbCharset.Text, (int)numMinCount.Value, (int)numCount.Value, (int)numThreads.Value, tbInput.Text);
+            try
+            {
+                Bruteforce.Start(hash, tbCharset.Text, (int)numMinCount.Value, (int)numCount.Value, (int)numThreads.Value, tbInput.Text);
+            }
+            catch (Exception ex) when (ex is ArgumentException || ex is FormatException || ex is OverflowException)
+            {
+                MessageBox.Show(this, ex is OverflowException
+                    ? "Der Suchraum oder Eingabewert ist zu groß. Bitte Eingaben und Wortlängen prüfen."
+                    : ex.Message, "Ungültige Eingabe", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
             var space = (ulong)StringHelper.CalculateSpace(Bruteforce.Charset, (int)numMinCount.Value, (int)numCount.Value);
             lblCharspaceValue.Text = space.ToString("0,0");

@@ -9,13 +9,14 @@ namespace Bruteforcer2.Hash.MD5
     public class HashMD5BouncyCastle : HashBase, IBruteforceHash
     {
         private readonly MD5Digest _crypto = new MD5Digest();
+        private readonly byte[] _result = new byte[16];
+
+        // The returned buffer belongs to this instance and is overwritten by the next call.
         public byte[] Hash(byte[] buffer, int offset, int count)
         {
             _crypto.BlockUpdate(buffer, offset, count);
-            int size = _crypto.GetDigestSize();
-            buffer = new byte[size];
-            _crypto.DoFinal(buffer, 0);
-            return buffer;
+            _crypto.DoFinal(_result, 0);
+            return _result;
         }
 
         protected override string Name

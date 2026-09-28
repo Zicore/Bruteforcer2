@@ -10,9 +10,12 @@ namespace Bruteforcer2.Bruteforce
         public static decimal CalculateSpace(String charset, int minWordLength, int maxWordLength)
         {
             decimal space = 0;
-            for (int i = minWordLength; i <= maxWordLength; i++)
+            decimal words = 1;
+            for (int i = 1; i <= maxWordLength; i++)
             {
-                space += (decimal)Math.Pow(charset.Length, i);
+                words *= charset.Length;
+                if (i >= minWordLength)
+                    space += words;
             }
             return space;
         }

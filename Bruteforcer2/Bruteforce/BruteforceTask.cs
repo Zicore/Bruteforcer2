@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Bruteforcer2.Hash;
@@ -11,188 +7,146 @@ namespace Bruteforcer2.Bruteforce
 {
     public class BruteforceTask
     {
-        private volatile bool _active;
-        private readonly char[] _charset;
-        private volatile bool _hasResult;
+        private const int ProgressBatchSize = 4096;
+        private readonly byte[] _charset;
         private readonly byte[] _input;
-        private decimal _lastCounter;
-        private readonly int _maxLength;
         private readonly int _minLength;
-        public long Counter;
-        public DateTime lastUpdate;
-        private DateTime _startDateTime;
-        private DateTime _endDateTime;
+        private readonly int _maxLength;
+        private readonly int _threadCount;
+        private long _counter;
+        private long _lastCounter;
+        private DateTime _lastUpdate;
+        private Task _task;
+        private volatile bool _active;
+        private volatile bool _hasResult;
 
-        // ------------------------------------------------------------
-
-        // ------------------------------------------------------------
-
-        public BruteforceTask(BruteforceManager manager, IBruteforceHash hash, int taskNumber, char[] charset, byte[] input,
-            int minLength, int maxLength)
+        public BruteforceTask(BruteforceManager manager, IBruteforceHash hash, int taskNumber,
+            char[] charset, byte[] input, int minLength, int maxLength)
         {
             BruteforceManager = manager;
-            _input = input;
-            Hash = hash.Clone() as IBruteforceHash;
-            _charset = charset;
+            Hash = (IBruteforceHash)hash.Clone();
             TaskNumber = taskNumber;
+            _charset = BruteforceManager.Encoding.GetBytes(charset);
+            _input = input;
             _minLength = minLength;
             _maxLength = maxLength;
+            _threadCount = manager.TaskCount;
         }
 
-        public BruteforceManager BruteforceManager { get; set; }
-        public IBruteforceHash Hash { get; set; }
-        public double Speed { get; set; }
-        public int TaskNumber { get; set; }
-        public bool HasResult
-        {
-            get => _hasResult;
-            set => _hasResult = value;
-        }
-
-        public string Result { get; set; }
-
-        // ------------------------------------------------------------
+        public BruteforceManager BruteforceManager { get; }
+        public IBruteforceHash Hash { get; }
+        public int TaskNumber { get; }
+        public long Counter => Interlocked.Read(ref _counter);
+        public double Speed { get; private set; }
+        public bool IsActive => _active;
+        public bool HasResult => _hasResult;
+        public string Result { get; private set; }
 
         public void Start()
         {
-            if (!_active)
-            {
-                _active = true;
-                new Task(() =>
-                {
-                    lastUpdate = DateTime.Now;
-                    _startDateTime = DateTime.Now;
-                    if (!BruteforceManager.Cancel)
-                        Bruteforce(_minLength, _maxLength, TaskNumber, BruteforceManager.TaskCount);
+            if (_task != null)
+                return;
 
-                    _endDateTime = DateTime.Now;
+            _lastUpdate = DateTime.UtcNow;
+            _active = true;
+            _task = Task.Factory.StartNew(() =>
+            {
+                try
+                {
+                    Bruteforce();
+                }
+                finally
+                {
                     _active = false;
-                },TaskCreationOptions.LongRunning).Start();
-            }
+                }
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
 
-        private void SkipIndexArray(long[] indexArray, int threadNumber, int charsetSize, int currentWordLength,
-            long words)
+        public void WaitForCompletion() => _task?.GetAwaiter().GetResult();
+
+        private void Bruteforce()
         {
-            var i = currentWordLength - 1;
-            var wordsToSkip = words * threadNumber;
-
-            var remainder = wordsToSkip % charsetSize;
-
-            for (var j = 0; j < currentWordLength; j++)
-            {
-                var wordPos = (long) Math.Pow(charsetSize, i - j);
-                var n = wordsToSkip / wordPos;
-                if (n > 0)
-                {
-                    indexArray[j] = n;
-                    wordsToSkip -= wordPos * n;
-                }
-                else
-                {
-                    if (wordsToSkip > wordPos) wordsToSkip -= wordPos;
-                }
-            }
-
-            indexArray[currentWordLength - 1] = remainder;
-        }
-
-        readonly byte[] currentHashBuffer = new byte[100];
-
-        private void Bruteforce(int minWordLength, int maxWordLength, int threadNumber, int threadCount)
-        {
-            var wordsPerThread = new long[maxWordLength];
-
-            for (var i = 0; i < wordsPerThread.Length; i++)
-                wordsPerThread[i] = (long) Math.Pow(_charset.Length, i + 1) / threadCount;
-
             var charset = _charset;
-            Counter = 0;
-
-            for (var currentWordLength = minWordLength; currentWordLength <= maxWordLength; currentWordLength++)
+            var hash = Hash;
+            long total = 1;
+            long counter = 0;
+            try
             {
-                Console.WriteLine($"Starting with word length: {currentWordLength} on Task Number: {TaskNumber} ThreadID: {Thread.CurrentThread.ManagedThreadId}");
-
-                var charBuffer = new char[currentWordLength];
-                var indexArray = new long[currentWordLength];
-
-
-                var position = currentWordLength - 1;
-                //var possibilites = (long)Math.Pow(charset.Length, currentWordLength);
-                var possibilites = wordsPerThread[minWordLength - 1 + currentWordLength - 1];
-
-                for (var j = 0; j < indexArray.Length; j++) indexArray[j] = 0;
-
-                if (threadNumber > 0)
-                    SkipIndexArray(indexArray, threadNumber, charset.Length, currentWordLength, possibilites);
-
-                for (var n = 0; n < possibilites; n++)
+                for (var length = 1; length <= _maxLength; length++)
                 {
-                    for (var i = 0; i < indexArray.Length; i++)
-                    {
-                        var index = indexArray[i];
-                        charBuffer[i] = charset[index];
-                    }
-
-                    BruteforceManager.Encoding.GetBytes(charBuffer, 0, charBuffer.Length, currentHashBuffer, 0);
-
-                    //Debug.WriteLine(new string(charBuffer));
-
-                    if (CheckItem(currentHashBuffer, _input, 0, charBuffer.Length, Hash))
-                    {
-                        _endDateTime = DateTime.Now;
-                        _active = false;
-                        BruteforceManager.EndTime = DateTime.Now;
-                        Result = new string(charBuffer);
-                        BruteforceManager.FirstTask = this;
-                        HasResult = true;
-                        BruteforceManager.Cancel = true;
-                        Console.WriteLine($"Hash with Result '{Result}' found on Task Number: {TaskNumber} ThreadID: {Thread.CurrentThread.ManagedThreadId}");
-                        return;
-                    }
-
-                    //Counter++;
-                    Interlocked.Increment(ref Counter);
-
-                    var update = true;
-                    for (var i = position; i >= 0 && update; i--)
-                    {
-                        update = false;
-                        indexArray[i]++;
-                        if (indexArray[i] >= charset.Length)
-                        {
-                            indexArray[i] = 0;
-                            update = true;
-                        }
-                    }
-
+                    total = checked(total * charset.Length);
                     if (BruteforceManager.Cancel)
                         return;
+                    if (length < _minLength)
+                        continue;
+
+                    // Distribute the remainder too, including when there are fewer words than workers.
+                    var quotient = total / _threadCount;
+                    var remainder = total % _threadCount;
+                    var count = quotient + (TaskNumber < remainder ? 1 : 0);
+                    if (count == 0)
+                        continue;
+                    var start = quotient * TaskNumber + Math.Min((long)TaskNumber, remainder);
+                    var indices = new int[length];
+                    var candidate = new byte[length];
+                    for (var i = length - 1; i >= 0; i--)
+                    {
+                        indices[i] = (int)(start % charset.Length);
+                        candidate[i] = charset[indices[i]];
+                        start /= charset.Length;
+                    }
+
+                    for (long n = 0; n < count; n++)
+                    {
+                        if ((n & (ProgressBatchSize - 1)) == 0)
+                        {
+                            Interlocked.Exchange(ref _counter, counter);
+                            if (BruteforceManager.Cancel)
+                                return;
+                        }
+
+                        var matches = hash.Hash(candidate, 0, length).AsSpan().SequenceEqual(_input);
+                        counter++;
+                        if (matches)
+                        {
+                            Result = BruteforceManager.Encoding.GetString(candidate);
+                            Interlocked.Exchange(ref _counter, counter);
+                            _hasResult = true;
+                            BruteforceManager.ReportResult(this);
+                            return;
+                        }
+
+                        // An odometer: only update bytes affected by the carry.
+                        for (var i = length - 1; i >= 0; i--)
+                        {
+                            var next = indices[i] + 1;
+                            if (next < charset.Length)
+                            {
+                                indices[i] = next;
+                                candidate[i] = charset[next];
+                                break;
+                            }
+                            indices[i] = 0;
+                            candidate[i] = charset[0];
+                        }
+                    }
                 }
             }
-
-            //Counter = 0;
-            Interlocked.Exchange(ref Counter, 0);
+            finally
+            {
+                // Preserve the final count on success, exhaustion, cancellation and failure.
+                Interlocked.Exchange(ref _counter, counter);
+            }
         }
-
-        private static bool CheckItem(byte[] charBuffer, byte[] input, int offset, int count, IBruteforceHash hash)
-        {
-            return HashHelper.ArraysEqual(hash.Hash(charBuffer, offset, count), input);
-        }
-
-        // ------------------------------------------------------------
 
         public void Update()
         {
-            if (_active)
-            {
-                var currentUpdate = DateTime.Now;
-
-                var timeDiff = currentUpdate - lastUpdate;
-                Speed = (double) (Counter - _lastCounter) / timeDiff.TotalSeconds;
-                _lastCounter = Counter;
-                lastUpdate = currentUpdate;
-            }
+            var now = DateTime.UtcNow;
+            var counter = Counter;
+            var seconds = (now - _lastUpdate).TotalSeconds;
+            Speed = seconds > 0 ? (counter - _lastCounter) / seconds : 0;
+            _lastCounter = counter;
+            _lastUpdate = now;
         }
     }
 }
