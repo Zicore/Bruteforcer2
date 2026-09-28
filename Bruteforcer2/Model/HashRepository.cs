@@ -26,7 +26,10 @@ namespace Bruteforcer2.Model
             };
 
             if (System.Runtime.Intrinsics.X86.Avx512F.IsSupported)
+            {
                 hashes.Insert(2, new HashAstraMD5Avx512());
+                hashes.Insert(3, new HashAstraMD5Direct());
+            }
             return hashes;
         }
     }

@@ -4,7 +4,8 @@ using Bruteforcer2.Bruteforce;
 using Bruteforcer2.Hash.MD5;
 
 // Correctness checks only: these timings are not a performance benchmark.
-HashAstraMD5 astra = args.Contains("--avx512") ? new HashAstraMD5Avx512() : new HashAstraMD5();
+HashAstraMD5 astra = args.Contains("--direct") ? new HashAstraMD5Direct()
+    : args.Contains("--avx512") ? new HashAstraMD5Avx512() : new HashAstraMD5();
 var bouncy = new HashMD5BouncyCastle();
 var checks = 0;
 void Check(bool condition, string description)
@@ -161,5 +162,79 @@ foreach (var task in restart.Tasks)
 restart.Update();
 Check(restart.HasResult && restart.Result == "ccc", "Restart result");
 restart.Stop();
+
+if (astra is HashAstraMD5Direct direct && System.Runtime.Intrinsics.X86.Avx512F.IsSupported)
+{
+    byte[] Candidate(byte[] charset, int length, long ordinal)
+    {
+        var bytes = new byte[length];
+        for (var i = length - 1; i >= 0; i--)
+        {
+            bytes[i] = charset[ordinal % charset.Length];
+            ordinal /= charset.Length;
+        }
+        return bytes;
+    }
+
+    void CheckRange(byte[] charset, int length, long start, int count, int targetOffset)
+    {
+        // targetOffset == count deliberately places the target just outside this worker's range.
+        var expected = Candidate(charset, length, start + targetOffset);
+        var search = direct.CreateSearch(charset, length, start, count, MD5.HashData(expected));
+        var processed = 0;
+        byte[] result = null;
+        while (processed < count && result == null)
+        {
+            var examined = search.Search(16, out result); // Exercise state across every batch boundary.
+            Check(examined > 0 && examined <= 16, "Direct progress bounds");
+            processed += examined;
+        }
+        Check(processed <= count, "Direct must not count inactive lanes");
+        if (targetOffset < count)
+        {
+            Check(result != null && result.AsSpan().SequenceEqual(expected),
+                $"Direct target N={charset.Length}, length={length}, start={start}, offset={targetOffset}");
+            Check(processed == Math.Min(count, (targetOffset / 16 + 1) * 16), "Direct hit count");
+        }
+        else
+            Check(result == null && processed == count, "Direct must not find candidates outside its range");
+        Check(search.Search(16, out var after) == 0 && after == null, "Direct exhausted search");
+    }
+
+    foreach (var size in new[] { 1, 2, 3, 7, 16, 26, 64, 128 })
+    foreach (var length in new[] { 1, 2, 3, 4, 5, 7, 8, 12, 31, 55 })
+    {
+        long total = 1;
+        var fits = true;
+        for (var i = 0; i < length; i++)
+        {
+            if (total > long.MaxValue / size) { fits = false; break; }
+            total *= size;
+        }
+        if (!fits)
+            continue;
+        // Non-contiguous, reverse-ordered bytes, including NUL and the high ASCII boundary.
+        var charset = Enumerable.Range(0, size).Select(i => (byte)(127 - i)).ToArray();
+        foreach (var requestedCount in new[] { 1, 7, 15, 16, 17, 31, 32, 33, 67 })
+        {
+            var count = (int)Math.Min(requestedCount, total);
+            foreach (var start in new[] { 0L, (total - count) / 2, total - count }.Distinct())
+            {
+                foreach (var offset in new[] { 0, Math.Min(15, count - 1), Math.Min(16, count - 1), count - 1 }.Distinct())
+                    CheckRange(charset, length, start, count, offset);
+                if (start + count < total)
+                    CheckRange(charset, length, start, count, count);
+            }
+        }
+    }
+    // Exhaustively check every generated candidate over multiple carries and batches.
+    for (var offset = 0; offset < 243; offset++)
+        CheckRange(Encoding.ASCII.GetBytes("z!a"), 5, 0, 243, offset);
+
+    var empty = direct.CreateSearch(new byte[] { 97 }, 55, 1, 0, new byte[16]);
+    Check(empty.Search(16, out var emptyResult) == 0 && emptyResult == null, "Empty range");
+    var wrongTarget = direct.CreateSearch(Encoding.ASCII.GetBytes("abc"), 4, 0, 33, new byte[1]);
+    Check(wrongTarget.Search(4096, out var wrongResult) == 33 && wrongResult == null, "Invalid target length");
+}
 
 Console.WriteLine($"PASS: {checks} checks; {astra}; batch size {astra.BatchSize}");

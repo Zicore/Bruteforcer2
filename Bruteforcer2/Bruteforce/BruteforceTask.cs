@@ -87,6 +87,16 @@ namespace Bruteforcer2.Bruteforce
                     if (count == 0)
                         continue;
                     var start = quotient * TaskNumber + Math.Min((long)TaskNumber, remainder);
+                    if (hash is IPreparedBruteforceHash prepared)
+                    {
+                        var search = prepared.CreateSearch(charset, length, start, count, _input);
+                        if (search != null)
+                        {
+                            if (BruteforcePrepared(search, count, ref counter))
+                                return;
+                            continue;
+                        }
+                    }
                     var indices = new int[length];
                     var candidate = new byte[length];
                     for (var i = length - 1; i >= 0; i--)
@@ -144,6 +154,31 @@ namespace Bruteforcer2.Bruteforce
                 // Preserve the final count on success, exhaustion, cancellation and failure.
                 Interlocked.Exchange(ref _counter, counter);
             }
+        }
+
+        private bool BruteforcePrepared(IPreparedBruteforceSearch search, long count, ref long counter)
+        {
+            long processed = 0;
+            while (processed < count)
+            {
+                Interlocked.Exchange(ref _counter, counter);
+                if (BruteforceManager.Cancel)
+                    return true;
+                var examined = search.Search(ProgressBatchSize, out var result);
+                if (examined <= 0 || examined > count - processed)
+                    throw new InvalidOperationException("Invalid prepared search progress.");
+                counter += examined;
+                processed += examined;
+                if (result != null)
+                {
+                    Result = BruteforceManager.Encoding.GetString(result);
+                    Interlocked.Exchange(ref _counter, counter);
+                    _hasResult = true;
+                    BruteforceManager.ReportResult(this);
+                    return true;
+                }
+            }
+            return false;
         }
 
         // Existing adapters keep the scalar loop above. Only batch-capable adapters enter here.

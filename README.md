@@ -36,6 +36,14 @@ weiterhin über den vorhandenen C#-Designer-Code bearbeiten.
 
 ## AstraMD5
 
+**AstraMD5 (AVX-512 Direct)** ist eine zusätzliche Vergleichsvariante für kurze
+Kandidaten. Sie hält 16 Kandidaten direkt in den MD5-Nachrichtenwörtern und zählt
+jede SIMD-Position nach einem Batch um 16 weiter. Dadurch entfallen die Kopie in
+den Batch-Puffer und das anschließende Umpacken im Adapter. Padding und Zielwörter
+werden einmal pro Suchbereich vorbereitet. Threadgrenzen und Restbatches werden
+weiterhin berücksichtigt; unbenutzte SIMD-Positionen zählen nicht als Kandidaten.
+Die bisherigen AVX2- und AVX-512-Varianten bleiben separat auswählbar.
+
 Auf CPUs mit AVX-512 steht zusätzlich **AstraMD5 (AVX-512 x16)** zur Verfügung.
 Dieser separate Adapter verarbeitet 16 kurze Kandidaten gleichzeitig und nutzt
 native Vektorrotationen sowie ternäre Logik-Instruktionen für die MD5-Runden.
@@ -68,6 +76,7 @@ SIMD-Positionen, Restbatches und Suchraumgrenzen; kein Benchmark):
 ```powershell
 dotnet run --project tools/AstraMD5.Verify --configuration Release
 dotnet run --project tools/AstraMD5.Verify --configuration Release -- --avx512
+dotnet run --project tools/AstraMD5.Verify --configuration Release -- --direct
 ```
 
 ![Bruteforcer2](https://i.imgur.com/CJZwQrf.png "Bruteforcer2")

@@ -8,7 +8,7 @@ using System.Runtime.Intrinsics.X86;
 namespace Bruteforcer2.Hash.MD5
 {
     // Separate selection so the existing AVX2 implementation remains a direct comparison.
-    public sealed class HashAstraMD5Avx512 : HashAstraMD5
+    public class HashAstraMD5Avx512 : HashAstraMD5
     {
         private readonly uint[] _words = new uint[16 * 16];
         private int _preparedLength = -1;
