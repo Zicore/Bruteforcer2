@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Bruteforcer2 (Debug)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/Bruteforcer2/bin/Debug/net8.0-windows/Bruteforcer2.dll",
+            "cwd": "${workspaceFolder}/Bruteforcer2",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        }
+    ]
+}
