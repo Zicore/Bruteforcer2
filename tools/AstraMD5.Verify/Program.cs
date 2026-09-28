@@ -4,7 +4,7 @@ using Bruteforcer2.Bruteforce;
 using Bruteforcer2.Hash.MD5;
 
 // Correctness checks only: these timings are not a performance benchmark.
-var astra = new HashAstraMD5();
+HashAstraMD5 astra = args.Contains("--avx512") ? new HashAstraMD5Avx512() : new HashAstraMD5();
 var bouncy = new HashMD5BouncyCastle();
 var checks = 0;
 void Check(bool condition, string description)
@@ -73,19 +73,19 @@ clone.Hash(new byte[] { 2 }, 0, 1);
 Check(originalResult.AsSpan().SequenceEqual(snapshot), "Clones must have independent buffers");
 
 // Reused SIMD storage must survive changing lengths in either direction and changing payloads.
-if (astra.BatchSize == 8)
+if (astra.BatchSize > 1)
 {
     for (var sample = 0; sample < 1000; sample++)
     {
         var length = random.Next(56);
-        var batch = new byte[length * 8];
+        var batch = new byte[length * astra.BatchSize];
         random.NextBytes(batch);
-        var lane = length == 0 ? 0 : sample % 8;
+        var lane = length == 0 ? 0 : sample % astra.BatchSize;
         var target = MD5.HashData(batch.AsSpan(lane * length, length));
         var first = 0;
         while (!MD5.HashData(batch.AsSpan(first * length, length)).AsSpan().SequenceEqual(target))
             first++;
-        Check(astra.FindMatch(batch, length, 8, target) == first, "SIMD buffer reuse across lengths");
+        Check(astra.FindMatch(batch, length, astra.BatchSize, target) == first, "SIMD buffer reuse across lengths");
     }
 }
 
@@ -93,7 +93,7 @@ void Search(string charset, int min, int max, int threads, string targetText, st
 {
     var manager = new BruteforceManager();
     var target = Convert.ToHexString(MD5.HashData(Encoding.ASCII.GetBytes(targetText)));
-    manager.Start(new HashAstraMD5(), charset, min, max, threads, target);
+    manager.Start((HashAstraMD5)astra.Clone(), charset, min, max, threads, target);
     try
     {
         var deadline = DateTime.UtcNow.AddSeconds(10);
@@ -135,7 +135,7 @@ Search("abc", 1, 1, 32, "c", "c");
 Search("abc", 1, 1, 32, "outside", null);
 Search("abc", 3, 3, 1, "a", null); // Honor minimum length.
 
-foreach (var index in new[] { 0, 7, 8, 4095, 4096, 4097, 6560 })
+foreach (var index in new[] { 0, 7, 8, 15, 16, 31, 4095, 4096, 4097, 6560 })
 {
     var position = index;
     var chars = new char[4];

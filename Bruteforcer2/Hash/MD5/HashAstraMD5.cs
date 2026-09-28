@@ -8,12 +8,12 @@ using System.Runtime.Intrinsics.X86;
 namespace Bruteforcer2.Hash.MD5
 {
     // One instance per worker. Result buffers may be overwritten by the next call.
-    public sealed partial class HashAstraMD5 : HashBase, IBatchedBruteforceHash
+    public partial class HashAstraMD5 : HashBase, IBatchedBruteforceHash
     {
         private readonly byte[] _result = new byte[16];
         private readonly uint[] _transposed = new uint[16 * 8];
         private int _preparedLength = -1;
-        public int BatchSize => Avx2.IsSupported ? 8 : 1;
+        public virtual int BatchSize => Avx2.IsSupported ? 8 : 1;
         protected override string Name => Avx2.IsSupported ? "AstraMD5 (AVX2 x8)" : "AstraMD5 (Scalar)";
 
         public byte[] Hash(byte[] buffer, int offset, int count)
@@ -23,7 +23,7 @@ namespace Bruteforcer2.Hash.MD5
             return _result;
         }
 
-        public int FindMatch(ReadOnlySpan<byte> candidates, int length, int count, ReadOnlySpan<byte> target)
+        public virtual int FindMatch(ReadOnlySpan<byte> candidates, int length, int count, ReadOnlySpan<byte> target)
         {
             if (length < 0 || count < 1 || count > BatchSize || candidates.Length != (long)length * count)
                 throw new ArgumentException("Invalid candidate batch.");

@@ -7,7 +7,7 @@ using System.Runtime.Intrinsics.X86;
 
 namespace Bruteforcer2.Hash.MD5
 {
-    public sealed partial class HashAstraMD5
+    public partial class HashAstraMD5
     {
         private static void CompressScalar(ReadOnlySpan<uint> x,
             out uint a, out uint b, out uint c, out uint d)
@@ -182,6 +182,94 @@ namespace Bruteforcer2.Hash.MD5
                 b += Vector256.Create(0xefcdab89u);
                 c += Vector256.Create(0x98badcfeu);
                 d += Vector256.Create(0x10325476u);
+            }
+        }
+
+        protected static void CompressAvx512(ReadOnlySpan<Vector512<uint>> x,
+            out Vector512<uint> a, out Vector512<uint> b, out Vector512<uint> c, out Vector512<uint> d)
+        {
+            unchecked
+            {
+                a = Vector512.Create(0x67452301u);
+                b = Vector512.Create(0xefcdab89u);
+                c = Vector512.Create(0x98badcfeu);
+                d = Vector512.Create(0x10325476u);
+
+                // Round 1
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0xca) + x[0] + Vector512.Create(0xd76aa478u), 7);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0xca) + x[1] + Vector512.Create(0xe8c7b756u), 12);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0xca) + x[2] + Vector512.Create(0x242070dbu), 17);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0xca) + x[3] + Vector512.Create(0xc1bdceeeu), 22);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0xca) + x[4] + Vector512.Create(0xf57c0fafu), 7);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0xca) + x[5] + Vector512.Create(0x4787c62au), 12);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0xca) + x[6] + Vector512.Create(0xa8304613u), 17);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0xca) + x[7] + Vector512.Create(0xfd469501u), 22);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0xca) + x[8] + Vector512.Create(0x698098d8u), 7);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0xca) + x[9] + Vector512.Create(0x8b44f7afu), 12);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0xca) + x[10] + Vector512.Create(0xffff5bb1u), 17);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0xca) + x[11] + Vector512.Create(0x895cd7beu), 22);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0xca) + x[12] + Vector512.Create(0x6b901122u), 7);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0xca) + x[13] + Vector512.Create(0xfd987193u), 12);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0xca) + x[14] + Vector512.Create(0xa679438eu), 17);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0xca) + x[15] + Vector512.Create(0x49b40821u), 22);
+
+                // Round 2
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0xe4) + x[1] + Vector512.Create(0xf61e2562u), 5);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0xe4) + x[6] + Vector512.Create(0xc040b340u), 9);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0xe4) + x[11] + Vector512.Create(0x265e5a51u), 14);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0xe4) + x[0] + Vector512.Create(0xe9b6c7aau), 20);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0xe4) + x[5] + Vector512.Create(0xd62f105du), 5);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0xe4) + x[10] + Vector512.Create(0x02441453u), 9);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0xe4) + x[15] + Vector512.Create(0xd8a1e681u), 14);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0xe4) + x[4] + Vector512.Create(0xe7d3fbc8u), 20);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0xe4) + x[9] + Vector512.Create(0x21e1cde6u), 5);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0xe4) + x[14] + Vector512.Create(0xc33707d6u), 9);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0xe4) + x[3] + Vector512.Create(0xf4d50d87u), 14);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0xe4) + x[8] + Vector512.Create(0x455a14edu), 20);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0xe4) + x[13] + Vector512.Create(0xa9e3e905u), 5);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0xe4) + x[2] + Vector512.Create(0xfcefa3f8u), 9);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0xe4) + x[7] + Vector512.Create(0x676f02d9u), 14);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0xe4) + x[12] + Vector512.Create(0x8d2a4c8au), 20);
+
+                // Round 3
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0x96) + x[5] + Vector512.Create(0xfffa3942u), 4);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0x96) + x[8] + Vector512.Create(0x8771f681u), 11);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0x96) + x[11] + Vector512.Create(0x6d9d6122u), 16);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0x96) + x[14] + Vector512.Create(0xfde5380cu), 23);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0x96) + x[1] + Vector512.Create(0xa4beea44u), 4);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0x96) + x[4] + Vector512.Create(0x4bdecfa9u), 11);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0x96) + x[7] + Vector512.Create(0xf6bb4b60u), 16);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0x96) + x[10] + Vector512.Create(0xbebfbc70u), 23);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0x96) + x[13] + Vector512.Create(0x289b7ec6u), 4);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0x96) + x[0] + Vector512.Create(0xeaa127fau), 11);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0x96) + x[3] + Vector512.Create(0xd4ef3085u), 16);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0x96) + x[6] + Vector512.Create(0x04881d05u), 23);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0x96) + x[9] + Vector512.Create(0xd9d4d039u), 4);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0x96) + x[12] + Vector512.Create(0xe6db99e5u), 11);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0x96) + x[15] + Vector512.Create(0x1fa27cf8u), 16);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0x96) + x[2] + Vector512.Create(0xc4ac5665u), 23);
+
+                // Round 4
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0x39) + x[0] + Vector512.Create(0xf4292244u), 6);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0x39) + x[7] + Vector512.Create(0x432aff97u), 10);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0x39) + x[14] + Vector512.Create(0xab9423a7u), 15);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0x39) + x[5] + Vector512.Create(0xfc93a039u), 21);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0x39) + x[12] + Vector512.Create(0x655b59c3u), 6);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0x39) + x[3] + Vector512.Create(0x8f0ccc92u), 10);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0x39) + x[10] + Vector512.Create(0xffeff47du), 15);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0x39) + x[1] + Vector512.Create(0x85845dd1u), 21);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0x39) + x[8] + Vector512.Create(0x6fa87e4fu), 6);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0x39) + x[15] + Vector512.Create(0xfe2ce6e0u), 10);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0x39) + x[6] + Vector512.Create(0xa3014314u), 15);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0x39) + x[13] + Vector512.Create(0x4e0811a1u), 21);
+                a = b + Avx512F.RotateLeft(a + Avx512F.TernaryLogic(b, c, d, 0x39) + x[4] + Vector512.Create(0xf7537e82u), 6);
+                d = a + Avx512F.RotateLeft(d + Avx512F.TernaryLogic(a, b, c, 0x39) + x[11] + Vector512.Create(0xbd3af235u), 10);
+                c = d + Avx512F.RotateLeft(c + Avx512F.TernaryLogic(d, a, b, 0x39) + x[2] + Vector512.Create(0x2ad7d2bbu), 15);
+                b = c + Avx512F.RotateLeft(b + Avx512F.TernaryLogic(c, d, a, 0x39) + x[9] + Vector512.Create(0xeb86d391u), 21);
+                a += Vector512.Create(0x67452301u);
+                b += Vector512.Create(0xefcdab89u);
+                c += Vector512.Create(0x98badcfeu);
+                d += Vector512.Create(0x10325476u);
             }
         }
 

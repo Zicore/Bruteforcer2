@@ -1,4 +1,4 @@
-"""Generate unrolled MD5 rounds with constant rotations for the scalar and AVX2 JITs."""
+"""Generate unrolled MD5 rounds for scalar, AVX2 and AVX-512 kernels."""
 from math import sin
 from pathlib import Path
 
@@ -14,17 +14,19 @@ def generate() -> str:
         "",
         "namespace Bruteforcer2.Hash.MD5",
         "{",
-        "    public sealed partial class HashAstraMD5",
+        "    public partial class HashAstraMD5",
         "    {",
     ]
     initial = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476]
     shifts = [(7, 12, 17, 22), (5, 9, 14, 20), (4, 11, 16, 23), (6, 10, 15, 21)]
-    for vector in (False, True):
-        kind = "Vector256<uint>" if vector else "uint"
-        name = "CompressAvx2" if vector else "CompressScalar"
-        constant = lambda n: f"Vector256.Create(0x{n:08x}u)" if vector else f"0x{n:08x}u"
+    for width in (0, 256, 512):
+        vector = width != 0
+        kind = f"Vector{width}<uint>" if vector else "uint"
+        name = {0: "CompressScalar", 256: "CompressAvx2", 512: "CompressAvx512"}[width]
+        visibility = "protected" if width == 512 else "private"
+        constant = lambda n: f"Vector{width}.Create(0x{n:08x}u)" if vector else f"0x{n:08x}u"
         lines += [
-            f"        private static void {name}(ReadOnlySpan<{kind}> x,",
+            f"        {visibility} static void {name}(ReadOnlySpan<{kind}> x,",
             f"            out {kind} a, out {kind} b, out {kind} c, out {kind} d)",
             "        {",
             "            unchecked",
@@ -46,6 +48,13 @@ def generate() -> str:
             shift = shifts[round_][i % 4]
             rotate = f"RotateLeft{shift}" if vector else "BitOperations.RotateLeft"
             shift_argument = "" if vector else f", {shift}"
+            if width == 512:
+                # Truth table index is (b << 2) | (c << 1) | d.
+                # One VPTERNLOGD replaces the three binary boolean operations.
+                logic = (0xCA, 0xE4, 0x96, 0x39)[round_]
+                f = f"Avx512F.TernaryLogic({b}, {c}, {d}, 0x{logic:02x})"
+                rotate = "Avx512F.RotateLeft"
+                shift_argument = f", {shift}"
             if i % 16 == 0:
                 lines.append(f"\n                // Round {round_ + 1}")
             lines.append(

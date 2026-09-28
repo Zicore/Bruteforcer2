@@ -36,6 +36,12 @@ weiterhin über den vorhandenen C#-Designer-Code bearbeiten.
 
 ## AstraMD5
 
+Auf CPUs mit AVX-512 steht zusätzlich **AstraMD5 (AVX-512 x16)** zur Verfügung.
+Dieser separate Adapter verarbeitet 16 kurze Kandidaten gleichzeitig und nutzt
+native Vektorrotationen sowie ternäre Logik-Instruktionen für die MD5-Runden.
+Der AVX2-Eintrag bleibt für direkte Vergleiche erhalten. Beide Varianten verwenden
+denselben Batch-Suchpfad und zählen tatsächlich berechnete Kandidaten.
+
 Im Hash-Auswahlfeld steht zusätzlich **AstraMD5 (AVX2 x8)** zur Verfügung.
 Für Kandidaten bis 55 Bytes berechnet dieser Adapter acht MD5-Hashes gleichzeitig
 mit AVX2 und vergleicht die Ergebniswörter direkt mit dem Zielhash. Die Anzeige
@@ -61,6 +67,7 @@ SIMD-Positionen, Restbatches und Suchraumgrenzen; kein Benchmark):
 
 ```powershell
 dotnet run --project tools/AstraMD5.Verify --configuration Release
+dotnet run --project tools/AstraMD5.Verify --configuration Release -- --avx512
 ```
 
 ![Bruteforcer2](https://i.imgur.com/CJZwQrf.png "Bruteforcer2")
